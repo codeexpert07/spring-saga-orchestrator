@@ -87,7 +87,8 @@ configure([project(':order-service'), project(':payment-service'), project(':inv
         implementation "org.springframework.statemachine:spring-statemachine-data-jpa:${springStateMachineVersion}"
 
         // Database Drivers
-        runtimeOnly 'com.h2database:h2'
+//        runtimeOnly 'com.h2database:h2'
+        runtimeOnly 'org.postgresql:postgresql'
 
         // Kafka Dependencies.
         implementation 'org.springframework.kafka:spring-kafka'
