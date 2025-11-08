@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 60000
+      initialization-fail-timeout: 60000
+      validation-timeout: 5000
+      max-lifetime: 1800000
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      retries: 3
+      acks: all
+
+logging:
+  level:
+    org.testcontainers: INFO
+    org.hibernate: WARN
+    org.springframework.kafka: INFO
