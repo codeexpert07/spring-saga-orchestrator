@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -44,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @Testcontainers
+@Import(TestConfig.class)
 class InventoryServiceIntegrationTest {
 
     @Container
@@ -64,9 +66,6 @@ class InventoryServiceIntegrationTest {
 
     @MockBean
     private KafkaListenerRegistrar kafkaListenerRegistrar;
-
-    @MockBean
-    private MessagePublisher messagePublisher;
 
     private static Consumer<String, Object> testConsumer;
 
