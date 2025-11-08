@@ -93,6 +93,19 @@ class InventoryServiceIntegrationTest {
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
         registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
         registry.add("spring.kafka.consumer.group-id", () -> "inventory-service-group");
+
+        // Kafka Producer Serialization - JSON
+        registry.add("spring.kafka.producer.key-serializer",
+                () -> "org.apache.kafka.common.serialization.StringSerializer");
+        registry.add("spring.kafka.producer.value-serializer",
+                () -> "org.springframework.kafka.support.serializer.JsonSerializer");
+
+        // Kafka Consumer Deserialization - JSON
+        registry.add("spring.kafka.consumer.key-deserializer",
+                () -> "org.apache.kafka.common.serialization.StringDeserializer");
+        registry.add("spring.kafka.consumer.value-deserializer",
+                () -> "org.springframework.kafka.support.serializer.JsonDeserializer");
+        registry.add("spring.kafka.consumer.properties.spring.json.trusted.packages", () -> "*");
     }
 
     @BeforeAll
