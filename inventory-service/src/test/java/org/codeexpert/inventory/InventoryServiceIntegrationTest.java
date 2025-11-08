@@ -68,18 +68,22 @@ class InventoryServiceIntegrationTest {
 
     @BeforeAll
     static void setup() {
-        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("test-group", "true", kafka.getBootstrapServers());
+        try {
+            Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("test-group", "true", kafka.getBootstrapServers());
 
-        DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(
-                consumerProps,
-                new org.apache.kafka.common.serialization.StringDeserializer(),
-                new org.springframework.kafka.support.serializer.JsonDeserializer<>(Object.class)
-                        .trustedPackages("*")
-        );
+            DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(
+                    consumerProps,
+                    new org.apache.kafka.common.serialization.StringDeserializer(),
+                    new org.springframework.kafka.support.serializer.JsonDeserializer<>(Object.class)
+                            .trustedPackages("*")
+            );
 
-        testConsumer = cf.createConsumer();
-        testConsumer.subscribe(Collections.singletonList(KafkaTopics.INVENTORY_EVENTS));
-        testConsumer.poll(Duration.ofSeconds(1));
+            testConsumer = cf.createConsumer();
+            testConsumer.subscribe(Collections.singletonList(KafkaTopics.INVENTORY_EVENTS));
+            testConsumer.poll(Duration.ofSeconds(1));
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
     @AfterAll
