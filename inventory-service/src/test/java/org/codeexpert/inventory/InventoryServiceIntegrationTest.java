@@ -68,23 +68,15 @@ class InventoryServiceIntegrationTest {
 
     @BeforeAll
     static void setup() {
-        // Wait for Kafka to be ready
-        kafka.start();
-
         Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("test-group", "true", kafka.getBootstrapServers());
 
-        consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                org.apache.kafka.common.serialization.StringDeserializer.class);
-        consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                org.springframework.kafka.support.serializer.JsonDeserializer.class);
+        DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(
+                consumerProps,
+                new org.apache.kafka.common.serialization.StringDeserializer(),
+                new org.springframework.kafka.support.serializer.JsonDeserializer<>(Object.class)
+                        .trustedPackages("*")
+        );
 
-        // Use the internal property name that JsonDeserializer expects
-        consumerProps.put(org.springframework.kafka.support.serializer.JsonDeserializer.TRUSTED_PACKAGES, "*");
-        // OR if the above doesn't work, use:
-        consumerProps.put("spring.json.trusted.packages", "*");
-
-        // Pass the deserializer config when creating the factory
-        DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
         testConsumer = cf.createConsumer();
         testConsumer.subscribe(Collections.singletonList(KafkaTopics.INVENTORY_EVENTS));
         testConsumer.poll(Duration.ofSeconds(1));
