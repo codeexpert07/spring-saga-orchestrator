@@ -3,9 +3,12 @@ package org.codeexpert.inventory;
 import com.codeexpert.common.listener.KafkaListenerRegistrar;
 import com.codeexpert.common.publisher.KafkaMessagePublisher;
 import com.codeexpert.common.publisher.MessagePublisher;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import static org.mockito.Mockito.mock;
@@ -15,9 +18,9 @@ public class TestConfig {
 
     @Bean
     @Primary
-    public KafkaListenerRegistrar kafkaListenerRegistrar() {
+    public KafkaListenerRegistrar kafkaListenerRegistrar(ObjectMapper objectMapper, ConcurrentKafkaListenerContainerFactory<String, Object> factory) {
         // Mock this one since it's not needed for the test
-        return mock(KafkaListenerRegistrar.class);
+        return new KafkaListenerRegistrar(factory, objectMapper);
     }
 
     @Bean

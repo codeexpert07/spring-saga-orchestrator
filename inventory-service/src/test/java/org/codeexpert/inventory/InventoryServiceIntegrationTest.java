@@ -5,9 +5,7 @@ import com.codeexpert.common.command.ReserveInventoryCommand;
 import com.codeexpert.common.constant.KafkaTopics;
 import com.codeexpert.common.event.InventoryReleasedEvent;
 import com.codeexpert.common.event.InventoryReservedEvent;
-import com.codeexpert.common.listener.KafkaListenerRegistrar;
 import com.codeexpert.common.model.OrderItem;
-import com.codeexpert.common.publisher.MessagePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -16,8 +14,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -39,9 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @Testcontainers
@@ -64,8 +60,8 @@ class InventoryServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
-    private KafkaListenerRegistrar kafkaListenerRegistrar;
+    @Autowired
+    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
     private static Consumer<String, Object> testConsumer;
 
@@ -90,21 +86,27 @@ class InventoryServiceIntegrationTest {
 
         // Kafka properties
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+
+        // Kafka Consumer Configuration
         registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
         registry.add("spring.kafka.consumer.group-id", () -> "inventory-service-group");
-
-        // Kafka Producer Serialization - JSON
-        registry.add("spring.kafka.producer.key-serializer",
-                () -> "org.apache.kafka.common.serialization.StringSerializer");
-        registry.add("spring.kafka.producer.value-serializer",
-                () -> "org.springframework.kafka.support.serializer.JsonSerializer");
-
-        // Kafka Consumer Deserialization - JSON
         registry.add("spring.kafka.consumer.key-deserializer",
                 () -> "org.apache.kafka.common.serialization.StringDeserializer");
         registry.add("spring.kafka.consumer.value-deserializer",
                 () -> "org.springframework.kafka.support.serializer.JsonDeserializer");
         registry.add("spring.kafka.consumer.properties.spring.json.trusted.packages", () -> "*");
+        registry.add("spring.kafka.consumer.properties.spring.json.use.type.headers", () -> "false");
+        registry.add("spring.kafka.consumer.properties.spring.json.value.default.type",
+                () -> "java.lang.Object");
+
+        // Kafka Producer Configuration
+        registry.add("spring.kafka.producer.key-serializer",
+                () -> "org.apache.kafka.common.serialization.StringSerializer");
+        registry.add("spring.kafka.producer.value-serializer",
+                () -> "org.springframework.kafka.support.serializer.JsonSerializer");
+
+        // Enable Kafka listeners
+        registry.add("spring.kafka.listener.ack-mode", () -> "MANUAL_IMMEDIATE");
     }
 
     @BeforeAll
@@ -146,6 +148,21 @@ class InventoryServiceIntegrationTest {
         }
     }
 
+    /**
+     * Wait for all Kafka listeners to be running before executing tests
+     */
+    private void waitForKafkaListeners() {
+        await().atMost(Duration.ofSeconds(30)).until(() -> {
+            boolean allRunning = kafkaListenerEndpointRegistry.getListenerContainers()
+                    .stream()
+                    .allMatch(container -> container.isRunning());
+            if (allRunning) {
+                System.out.println("All Kafka listeners are running");
+            }
+            return allRunning;
+        });
+    }
+
     @AfterAll
     static void tearDown() {
         if (testConsumer != null) {
@@ -167,6 +184,9 @@ class InventoryServiceIntegrationTest {
 
     @Test
     void shouldProcessReserveInventoryCommandAndPublishInventoryReservedEvent() throws Exception {
+        // Wait for listeners to be ready
+        waitForKafkaListeners();
+
         // Given
         String orderId = UUID.randomUUID().toString();
         OrderItem orderItem = OrderItem.builder()
@@ -212,6 +232,9 @@ class InventoryServiceIntegrationTest {
 
     @Test
     void shouldProcessReleaseInventoryCommandAndPublishInventoryReleasedEvent() throws Exception {
+        // Wait for listeners to be ready
+        waitForKafkaListeners();
+
         // Given
         String orderId = UUID.randomUUID().toString();
         String reservationId = UUID.randomUUID().toString();
