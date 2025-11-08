@@ -7,6 +7,7 @@ import com.codeexpert.common.event.InventoryReleasedEvent;
 import com.codeexpert.common.event.InventoryReservedEvent;
 import com.codeexpert.common.listener.KafkaListenerRegistrar;
 import com.codeexpert.common.model.OrderItem;
+import com.codeexpert.common.publisher.MessagePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -63,6 +64,9 @@ class InventoryServiceIntegrationTest {
 
     @MockBean
     private KafkaListenerRegistrar kafkaListenerRegistrar;
+
+    @MockBean
+    private MessagePublisher messagePublisher;
 
     private static Consumer<String, Object> testConsumer;
 
