@@ -5,6 +5,7 @@ import com.codeexpert.common.command.ReserveInventoryCommand;
 import com.codeexpert.common.constant.KafkaTopics;
 import com.codeexpert.common.event.InventoryReleasedEvent;
 import com.codeexpert.common.event.InventoryReservedEvent;
+import com.codeexpert.common.listener.KafkaListenerRegistrar;
 import com.codeexpert.common.model.OrderItem;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -58,6 +60,9 @@ class InventoryServiceIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockBean
+    private KafkaListenerRegistrar kafkaListenerRegistrar;
 
     private static Consumer<String, Object> testConsumer;
 
