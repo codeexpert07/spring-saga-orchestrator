@@ -89,11 +89,20 @@ class InventoryServiceIntegrationTest {
     @BeforeAll
     static void setup() {
         try {
-            Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(
-                    "test-group",
-                    "true",
-                    kafka.getBootstrapServers()
-            );
+            // Manually build consumer properties to avoid parameter order issues
+            Map<String, Object> consumerProps = new java.util.HashMap<>();
+            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    kafka.getBootstrapServers());
+            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, "test-group");
+            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                    org.apache.kafka.common.serialization.StringDeserializer.class);
+            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                    JsonDeserializer.class);
+            consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+            consumerProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+            consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Object.class.getName());
 
             // Create consumer factory with explicit deserializers
             DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(
