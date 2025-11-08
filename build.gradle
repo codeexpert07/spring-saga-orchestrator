@@ -1,0 +1,122 @@
+plugins {
+    id 'org.springframework.boot' version '3.2.0' apply false
+    id 'io.spring.dependency-management' version '1.1.4' apply false
+}
+
+ext {
+    jacksonVersion = '2.15.3' // Align with Spring Boot 3.2.0
+    lombokVersion = '1.18.32'
+    mockitoVersion = '5.7.0'
+    assertJVersion = '3.24.2'
+}
+
+allprojects {
+    group = 'org.codeexpert'
+    version = '1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+
+    dependencies {
+        // JSON Processing
+        implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+        implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
+
+        // Lombok
+        compileOnly "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+        // Common Testing Dependencies
+        testImplementation platform('org.junit:junit-bom:5.10.0')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        testImplementation "org.mockito:mockito-core:${mockitoVersion}"
+        testImplementation "org.assertj:assertj-core:${assertJVersion}"
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(JavaCompile) {
+        options.annotationProcessorPath = configurations.annotationProcessor
+    }
+}
+
+configure([project(':order-service'), project(':payment-service'), project(':inventory-service'), project(':shipping-service')]) {
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    ext {
+        set('springCloudVersion', "2023.0.0")
+        set('springStateMachineVersion', "3.2.0")
+        set('testcontainersVersion', "1.19.3")
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.0"
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+            mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
+        }
+    }
+
+    dependencies {
+        implementation project(':common-library')
+
+        // Common Spring Boot Dependencies
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+        // Spring State Machine
+        implementation "org.springframework.statemachine:spring-statemachine-core:${springStateMachineVersion}"
+        implementation "org.springframework.statemachine:spring-statemachine-data-jpa:${springStateMachineVersion}"
+
+        // Database Drivers
+        runtimeOnly 'com.h2database:h2'
+
+        // Kafka Dependencies.
+        implementation 'org.springframework.kafka:spring-kafka'
+
+        // Utilities
+        implementation 'org.apache.commons:commons-lang3'
+
+        // Spring-specific Testing Dependencies
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation "org.springframework.statemachine:spring-statemachine-test:${springStateMachineVersion}"
+        testImplementation 'org.testcontainers:testcontainers'
+        testImplementation 'org.testcontainers:junit-jupiter'
+        testImplementation 'org.testcontainers:kafka' // Added Kafka Testcontainers
+        testImplementation 'org.testcontainers:postgresql' // Added PostgreSQL Testcontainers
+        testImplementation 'org.springframework.kafka:spring-kafka-test' // Added Spring Kafka Test
+        testImplementation 'io.rest-assured:rest-assured'
+        testImplementation 'org.awaitility:awaitility'
+    }
+
+    springBoot {
+        buildInfo()
+    }
+
+    jar {
+        enabled = false
+    }
+
+    bootJar {
+        enabled = true
+        archiveClassifier = ''
+    }
+}

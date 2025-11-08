@@ -1,0 +1,6 @@
+rootProject.name = 'spring-saga-orchestrator'
+include 'payment-service'
+include 'order-service'
+include 'common-library'
+include 'shipping-service'
+include 'inventory-service'
