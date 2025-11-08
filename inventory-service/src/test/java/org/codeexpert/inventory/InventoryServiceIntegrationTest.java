@@ -5,7 +5,7 @@ import com.codeexpert.common.command.ReserveInventoryCommand;
 import com.codeexpert.common.constant.KafkaTopics;
 import com.codeexpert.common.event.InventoryReleasedEvent;
 import com.codeexpert.common.event.InventoryReservedEvent;
-import com.codeexpert.common.model.OrderItem; // Added import
+import com.codeexpert.common.model.OrderItem;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -28,7 +29,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List; // Added import
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -43,10 +44,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InventoryServiceIntegrationTest {
 
     @Container
-    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"));
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+            DockerImageName.parse("postgres:13")
+    ).withStartupTimeout(Duration.ofMinutes(2));
 
     @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:13"));
+    static KafkaContainer kafka = new KafkaContainer(
+            DockerImageName.parse("confluentinc/cp-kafka:7.4.0")
+    ).withStartupTimeout(Duration.ofMinutes(2));
 
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
@@ -57,92 +62,115 @@ class InventoryServiceIntegrationTest {
     private static Consumer<String, Object> testConsumer;
 
     @DynamicPropertySource
-    static void kafkaProperties(DynamicPropertyRegistry registry) {
-        // Wait for containers to be ready
-        kafka.start();
-        postgres.start();
-
-        // Kafka properties
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-        registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
-
+    static void overrideProperties(DynamicPropertyRegistry registry) {
         // PostgreSQL properties
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
 
+        // HikariCP configuration for CI environment
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "5");
+        registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
+        registry.add("spring.datasource.hikari.connection-timeout", () -> "60000");
+        registry.add("spring.datasource.hikari.initialization-fail-timeout", () -> "60000");
+        registry.add("spring.datasource.hikari.validation-timeout", () -> "5000");
+
         // JPA properties
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
         registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
 
-        // HikariCP properties for faster startup and better CI compatibility
-        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "5");
-        registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
-        registry.add("spring.datasource.hikari.connection-timeout", () -> "30000");
-        registry.add("spring.datasource.hikari.idle-timeout", () -> "600000");
+        // Kafka properties
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
+        registry.add("spring.kafka.consumer.group-id", () -> "inventory-service-group");
     }
 
     @BeforeAll
     static void setup() {
         try {
-            Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("test-group", "true", kafka.getBootstrapServers());
+            Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(
+                    "test-group",
+                    "true",
+                    kafka.getBootstrapServers()
+            );
 
+            // Create consumer factory with explicit deserializers
             DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(
                     consumerProps,
                     new org.apache.kafka.common.serialization.StringDeserializer(),
-                    new org.springframework.kafka.support.serializer.JsonDeserializer<>(Object.class)
-                            .trustedPackages("*")
+                    new JsonDeserializer<>(Object.class).trustedPackages("*")
             );
 
             testConsumer = cf.createConsumer();
             testConsumer.subscribe(Collections.singletonList(KafkaTopics.INVENTORY_EVENTS));
+
+            // Initial poll to ensure consumer is assigned partitions
             testConsumer.poll(Duration.ofSeconds(1));
-        } catch (Throwable e) {
+
+            System.out.println("Test consumer setup completed successfully");
+        } catch (Exception e) {
+            System.err.println("Error setting up test consumer: " + e.getMessage());
             e.printStackTrace();
+            throw e;
         }
     }
 
     @AfterAll
     static void tearDown() {
         if (testConsumer != null) {
-            testConsumer.close();
+            try {
+                testConsumer.close();
+                System.out.println("Test consumer closed successfully");
+            } catch (Exception e) {
+                System.err.println("Error closing test consumer: " + e.getMessage());
+            }
         }
     }
 
     @Test
     void contextLoads() {
         assertNotNull(kafkaTemplate);
+        assertNotNull(objectMapper);
+        System.out.println("Context loaded successfully");
     }
 
     @Test
     void shouldProcessReserveInventoryCommandAndPublishInventoryReservedEvent() throws Exception {
         // Given
         String orderId = UUID.randomUUID().toString();
-        OrderItem orderItem = OrderItem.builder() // Create OrderItem
+        OrderItem orderItem = OrderItem.builder()
                 .productId("product1")
                 .quantity(1)
                 .price(BigDecimal.valueOf(10.00))
                 .build();
-        List<OrderItem> items = Collections.singletonList(orderItem); // Create List of OrderItem
+        List<OrderItem> items = Collections.singletonList(orderItem);
 
         ReserveInventoryCommand command = ReserveInventoryCommand.builder()
                 .orderId(orderId)
-                .items(items) // Pass the List of OrderItem
+                .items(items)
                 .correlationId(orderId)
                 .build();
 
         // When
-        kafkaTemplate.send(KafkaTopics.INVENTORY_COMMANDS, command.getOrderId(), command).get(10, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.INVENTORY_COMMANDS, command.getOrderId(), command)
+                .get(10, TimeUnit.SECONDS);
         System.out.println("Sent ReserveInventoryCommand: " + command);
 
         // Then
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(testConsumer, KafkaTopics.INVENTORY_EVENTS, Duration.ofMillis(10000));
-            assertNotNull(receivedRecord);
+            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(
+                    testConsumer,
+                    KafkaTopics.INVENTORY_EVENTS,
+                    Duration.ofMillis(10000)
+            );
+
+            assertNotNull(receivedRecord, "No record received from Kafka");
             Object value = receivedRecord.value();
-            assertNotNull(value);
-            assertTrue(value instanceof InventoryReservedEvent);
+            assertNotNull(value, "Record value is null");
+            assertTrue(value instanceof InventoryReservedEvent,
+                    "Expected InventoryReservedEvent but got: " + value.getClass().getName());
+
             InventoryReservedEvent event = (InventoryReservedEvent) value;
             System.out.println("Received InventoryReservedEvent: " + event);
 
@@ -164,21 +192,29 @@ class InventoryServiceIntegrationTest {
                 .build();
 
         // When
-        kafkaTemplate.send(KafkaTopics.INVENTORY_COMMANDS, command.getOrderId(), command).get(10, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.INVENTORY_COMMANDS, command.getOrderId(), command)
+                .get(10, TimeUnit.SECONDS);
         System.out.println("Sent ReleaseInventoryCommand: " + command);
 
         // Then
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(testConsumer, KafkaTopics.INVENTORY_EVENTS, Duration.ofMillis(10000));
-            assertNotNull(receivedRecord);
+            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(
+                    testConsumer,
+                    KafkaTopics.INVENTORY_EVENTS,
+                    Duration.ofMillis(10000)
+            );
+
+            assertNotNull(receivedRecord, "No record received from Kafka");
             Object value = receivedRecord.value();
-            assertNotNull(value);
-            assertTrue(value instanceof InventoryReleasedEvent);
+            assertNotNull(value, "Record value is null");
+            assertTrue(value instanceof InventoryReleasedEvent,
+                    "Expected InventoryReleasedEvent but got: " + value.getClass().getName());
+
             InventoryReleasedEvent event = (InventoryReleasedEvent) value;
             System.out.println("Received InventoryReleasedEvent: " + event);
 
             assertEquals(orderId, event.getOrderId());
-            assertEquals("SUCCESS", event.getStatus()); // Assuming success by default
+            assertEquals("SUCCESS", event.getStatus());
             assertEquals(reservationId, event.getReservationId());
         });
     }
