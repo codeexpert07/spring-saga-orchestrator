@@ -1,10 +1,14 @@
 package org.codeexpert.inventory;
 
+import com.codeexpert.common.command.BaseCommand;
 import com.codeexpert.common.command.ReleaseInventoryCommand;
 import com.codeexpert.common.command.ReserveInventoryCommand;
 import com.codeexpert.common.constant.KafkaTopics;
+import com.codeexpert.common.event.BaseEvent;
+import com.codeexpert.common.event.DomainEvent;
 import com.codeexpert.common.event.InventoryReleasedEvent;
 import com.codeexpert.common.event.InventoryReservedEvent;
+import com.codeexpert.common.listener.JsonEventSerializer;
 import com.codeexpert.common.model.OrderItem;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -19,14 +23,11 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
+import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -37,22 +38,52 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-@Testcontainers
+@DirtiesContext
+@EmbeddedKafka(
+        partitions = 1,
+        topics = {
+                KafkaTopics.INVENTORY_COMMANDS,
+                KafkaTopics.INVENTORY_EVENTS
+        },
+        brokerProperties = {
+                "listeners=PLAINTEXT://localhost:9092",
+                "port=9092",
+                "auto.create.topics.enable=true"
+        }
+)
+@TestPropertySource(properties = {
+        // H2 Database Configuration
+        "spring.datasource.url=jdbc:h2:mem:testdb",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.h2.console.enabled=false",
+
+        // Kafka Configuration
+        "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
+        "spring.kafka.consumer.auto-offset-reset=earliest",
+        "spring.kafka.consumer.group-id=inventory-service-test-group",
+
+        // Kafka Producer Serialization
+        "spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer",
+        "spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer",
+
+        // Kafka Consumer Deserialization
+        "spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
+        "spring.kafka.consumer.value-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
+})
 @Import(TestConfig.class)
 class InventoryServiceIntegrationTest {
 
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
-            DockerImageName.parse("postgres:13")
-    ).withStartupTimeout(Duration.ofMinutes(2));
-
-    @Container
-    static KafkaContainer kafka = new KafkaContainer(
-            DockerImageName.parse("confluentinc/cp-kafka:7.4.0")
-    ).withStartupTimeout(Duration.ofMinutes(2));
+    @Autowired
+    private EmbeddedKafkaBroker embeddedKafkaBroker;
 
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
@@ -63,75 +94,25 @@ class InventoryServiceIntegrationTest {
     @Autowired
     private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
-    private static Consumer<String, Object> testConsumer;
-
-    @DynamicPropertySource
-    static void overrideProperties(DynamicPropertyRegistry registry) {
-        // PostgreSQL properties
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-
-        // HikariCP configuration for CI environment
-        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "5");
-        registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
-        registry.add("spring.datasource.hikari.connection-timeout", () -> "60000");
-        registry.add("spring.datasource.hikari.initialization-fail-timeout", () -> "60000");
-        registry.add("spring.datasource.hikari.validation-timeout", () -> "5000");
-
-        // JPA properties
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-        registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
-
-        // Kafka properties
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-
-        // Kafka Consumer Configuration
-        registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
-        registry.add("spring.kafka.consumer.group-id", () -> "inventory-service-group");
-        registry.add("spring.kafka.consumer.key-deserializer",
-                () -> "org.apache.kafka.common.serialization.StringDeserializer");
-        registry.add("spring.kafka.consumer.value-deserializer",
-                () -> "org.springframework.kafka.support.serializer.JsonDeserializer");
-        registry.add("spring.kafka.consumer.properties.spring.json.trusted.packages", () -> "*");
-        registry.add("spring.kafka.consumer.properties.spring.json.use.type.headers", () -> "false");
-        registry.add("spring.kafka.consumer.properties.spring.json.value.default.type",
-                () -> "java.lang.Object");
-
-        // Kafka Producer Configuration
-        registry.add("spring.kafka.producer.key-serializer",
-                () -> "org.apache.kafka.common.serialization.StringSerializer");
-        registry.add("spring.kafka.producer.value-serializer",
-                () -> "org.springframework.kafka.support.serializer.JsonSerializer");
-
-        // Enable Kafka listeners
-        registry.add("spring.kafka.listener.ack-mode", () -> "MANUAL_IMMEDIATE");
-    }
+    private static Consumer<String, String> testConsumer;
 
     @BeforeAll
-    static void setup() {
+    static void setup(@Autowired EmbeddedKafkaBroker embeddedKafkaBroker) {
         try {
-            // Manually build consumer properties to avoid parameter order issues
-            Map<String, Object> consumerProps = new java.util.HashMap<>();
-            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    kafka.getBootstrapServers());
-            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, "test-group");
-            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+            // Build consumer properties for embedded Kafka
+            Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(
+                    "test-consumer-group",
+                    "true",
+                    embeddedKafkaBroker
+            );
+
             consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    org.apache.kafka.common.serialization.StringDeserializer.class);
-            consumerProps.put(org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    JsonDeserializer.class);
-            consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-            consumerProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-            consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Object.class.getName());
 
             // Create consumer factory with explicit deserializers
-            DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(
+            DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(
                     consumerProps,
                     new org.apache.kafka.common.serialization.StringDeserializer(),
-                    new JsonDeserializer<>(Object.class).trustedPackages("*")
+                    new org.apache.kafka.common.serialization.StringDeserializer()
             );
 
             testConsumer = cf.createConsumer();
@@ -145,6 +126,18 @@ class InventoryServiceIntegrationTest {
             System.err.println("Error setting up test consumer: " + e.getMessage());
             e.printStackTrace();
             throw e;
+        }
+    }
+
+    @AfterAll
+    static void tearDown() {
+        if (testConsumer != null) {
+            try {
+                testConsumer.close();
+                System.out.println("Test consumer closed successfully");
+            } catch (Exception e) {
+                System.err.println("Error closing test consumer: " + e.getMessage());
+            }
         }
     }
 
@@ -163,23 +156,12 @@ class InventoryServiceIntegrationTest {
         });
     }
 
-    @AfterAll
-    static void tearDown() {
-        if (testConsumer != null) {
-            try {
-                testConsumer.close();
-                System.out.println("Test consumer closed successfully");
-            } catch (Exception e) {
-                System.err.println("Error closing test consumer: " + e.getMessage());
-            }
-        }
-    }
-
     @Test
     void contextLoads() {
         assertNotNull(kafkaTemplate);
         assertNotNull(objectMapper);
-        System.out.println("Context loaded successfully");
+        assertNotNull(embeddedKafkaBroker);
+        System.out.println("Context loaded successfully with embedded Kafka");
     }
 
     @Test
@@ -209,7 +191,7 @@ class InventoryServiceIntegrationTest {
 
         // Then
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(
+            ConsumerRecord<String, String> receivedRecord = KafkaTestUtils.getSingleRecord(
                     testConsumer,
                     KafkaTopics.INVENTORY_EVENTS,
                     Duration.ofMillis(10000)
@@ -251,14 +233,14 @@ class InventoryServiceIntegrationTest {
 
         // Then
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(
+            ConsumerRecord<String, String> receivedRecord = KafkaTestUtils.getSingleRecord(
                     testConsumer,
                     KafkaTopics.INVENTORY_EVENTS,
                     Duration.ofMillis(10000)
             );
 
             assertNotNull(receivedRecord, "No record received from Kafka");
-            Object value = receivedRecord.value();
+            DomainEvent value = new JsonEventSerializer().fromString(receivedRecord.value());
             assertNotNull(value, "Record value is null");
             assertTrue(value instanceof InventoryReleasedEvent,
                     "Expected InventoryReleasedEvent but got: " + value.getClass().getName());

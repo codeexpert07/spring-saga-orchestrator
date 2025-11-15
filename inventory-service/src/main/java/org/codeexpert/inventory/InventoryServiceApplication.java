@@ -33,8 +33,6 @@ public class InventoryServiceApplication {
         String groupId = "inventory-service-group"; // Define group ID here or in properties
 
         kafkaListenerRegistrar.registerListener(
-                KafkaTopics.INVENTORY_COMMANDS, groupId, inventoryCommandListener, ReserveInventoryCommand.class);
-        kafkaListenerRegistrar.registerListener(
-                KafkaTopics.INVENTORY_COMMANDS, groupId, inventoryCommandListener, ReleaseInventoryCommand.class);
+                KafkaTopics.INVENTORY_COMMANDS, groupId, inventoryCommandListener);
     }
 }

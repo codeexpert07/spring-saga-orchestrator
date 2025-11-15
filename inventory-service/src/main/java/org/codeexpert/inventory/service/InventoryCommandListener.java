@@ -81,6 +81,7 @@ public class InventoryCommandListener implements DomainEventListener {
                 .orderId(command.getOrderId())
                 .reservationId(command.getReservationId())
                 .correlationId(command.getCorrelationId())
+                .status("SUCCESS")
                 .build();
 
         messagePublisher.publish(KafkaTopics.INVENTORY_EVENTS, event.getOrderId(), event); // Changed commandPublisher to messagePublisher

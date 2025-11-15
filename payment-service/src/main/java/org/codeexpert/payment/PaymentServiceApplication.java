@@ -30,6 +30,6 @@ public class PaymentServiceApplication {
         String groupId = "payment-service-group"; // Define group ID here or in properties
 
         kafkaListenerRegistrar.registerListener(
-                KafkaTopics.PAYMENT_COMMANDS, groupId, paymentCommandListener, ProcessPaymentCommand.class);
+                KafkaTopics.PAYMENT_COMMANDS, groupId, paymentCommandListener);
     }
 }

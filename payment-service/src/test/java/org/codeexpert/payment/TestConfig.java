@@ -1,4 +1,4 @@
-package org.codeexpert.inventory;
+package org.codeexpert.payment;
 
 import com.codeexpert.common.constant.KafkaTopics;
 import com.codeexpert.common.listener.KafkaListenerRegistrar;
@@ -26,7 +26,7 @@ public class TestConfig {
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = new HashMap<>();
         configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-         String bootstrapServers = (String) configs.get(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG);
+        String bootstrapServers = (String) configs.get(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG);
         configs.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
         configs.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, 5000);
 
@@ -42,7 +42,7 @@ public class TestConfig {
      */
     @Bean
     public NewTopic inventoryCommandsTopic() {
-        return TopicBuilder.name(KafkaTopics.INVENTORY_COMMANDS)
+        return TopicBuilder.name(KafkaTopics.PAYMENT_COMMANDS)
                 .partitions(1)
                 .replicas(1)
                 .build();
@@ -50,7 +50,7 @@ public class TestConfig {
 
     @Bean
     public NewTopic inventoryEventsTopic() {
-        return TopicBuilder.name(KafkaTopics.INVENTORY_EVENTS)
+        return TopicBuilder.name(KafkaTopics.PAYMENT_EVENTS)
                 .partitions(1)
                 .replicas(1)
                 .build();

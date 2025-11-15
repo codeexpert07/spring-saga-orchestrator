@@ -1,31 +1,57 @@
 spring:
+  # H2 Database
   datasource:
-    hikari:
-      maximum-pool-size: 5
-      minimum-idle: 1
-      connection-timeout: 60000
-      initialization-fail-timeout: 60000
-      validation-timeout: 5000
-      max-lifetime: 1800000
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
   jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
     show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
-        jdbc:
-          time_zone: UTC
+
+  h2:
+    console:
+      enabled: false
+
+  # Kafka Configuration
   kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
+
     consumer:
       auto-offset-reset: earliest
-      enable-auto-commit: false
+      group-id: inventory-service-test-group
+      enable-auto-commit: true
+      auto-commit-interval: 100
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
-        spring.json.trusted.packages: "*"
-    producer:
-      retries: 3
-      acks: all
+        allow.auto.create.topics: true
+        metadata.max.age.ms: 1000
 
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: oorg.apache.kafka.common.serialization.StringSerializer
+      properties:
+        spring.json.add.type.headers: true  # Critical: Add type headers
+        allow.auto.create.topics: true
+
+    listener:
+      ack-mode: RECORD
+      poll-timeout: 3000
+      type: single
+
+    admin:
+      auto-create: true
+      properties:
+        allow.auto.create.topics: true
+
+# Logging
 logging:
   level:
-    org.testcontainers: INFO
-    org.hibernate: WARN
-    org.springframework.kafka: INFO
+    org.springframework.kafka: DEBUG
+    com.codeexpert: DEBUG
+    org.codeexpert: DEBUG
+    org.apache.kafka: WARN

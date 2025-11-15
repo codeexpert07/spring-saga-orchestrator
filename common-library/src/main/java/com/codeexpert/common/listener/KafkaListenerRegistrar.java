@@ -1,5 +1,7 @@
 package com.codeexpert.common.listener;
 
+import com.codeexpert.common.command.BaseCommand;
+import com.codeexpert.common.event.BaseEvent;
 import com.codeexpert.common.event.DomainEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
@@ -17,6 +19,8 @@ public class KafkaListenerRegistrar {
 
     private final ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory;
     private final ObjectMapper objectMapper;
+    private final EventSerializer eventSerializer = new JsonEventSerializer();
+
 
     public KafkaListenerRegistrar(
             ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory,
@@ -28,25 +32,18 @@ public class KafkaListenerRegistrar {
     public void registerListener(
             String topic,
             String groupId,
-            DomainEventListener domainEventListener,
-            Class<?> eventType) { // Changed to Class<?>
+            DomainEventListener domainEventListener) {
 
         ConcurrentMessageListenerContainer<String, Object> container =
                 kafkaListenerContainerFactory.createContainer(topic);
-
         container.getContainerProperties().setGroupId(groupId);
-        container.getContainerProperties().setMessageListener(new MessageListener<String, Object>() {
+        container.getContainerProperties().setMessageListener(new MessageListener<String, String>() {
             @Override
             @SuppressWarnings("unchecked") // Suppress unchecked cast warning
-            public void onMessage(ConsumerRecord<String, Object> record) {
+            public void onMessage(ConsumerRecord<String, String> record) {
                 try {
-                    if (eventType.isInstance(record.value())) {
-                        domainEventListener.onEvent((DomainEvent) record.value()); // Cast to DomainEvent
-                    } else {
-                        log.warn("Received event of unexpected type {} for topic {}. Expected {}.",
-                                record.value().getClass().getName(), topic, eventType.getName());
-                    }
-
+                    DomainEvent command = eventSerializer.fromString(record.value());
+                    domainEventListener.onEvent(command);
                 } catch (Exception e) {
                     log.error("Error processing Kafka message for topic {}: {}", topic, e.getMessage(), e);
                 }
@@ -54,6 +51,6 @@ public class KafkaListenerRegistrar {
         });
 
         container.start();
-        log.info("Registered Kafka listener for topic '{}' with group '{}' for event type '{}'", topic, groupId, eventType.getSimpleName());
+        log.info("Registered Kafka listener for topic '{}' with group '{}'", topic, groupId);
     }
 }
