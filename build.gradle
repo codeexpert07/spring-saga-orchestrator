@@ -87,7 +87,11 @@ configure([project(':order-service'), project(':payment-service'), project(':inv
         implementation "org.springframework.statemachine:spring-statemachine-data-jpa:${springStateMachineVersion}"
 
         // Database Drivers
-        runtimeOnly 'com.h2database:h2'
+//        runtimeOnly 'com.h2database:h2'
+        runtimeOnly 'org.postgresql:postgresql'
+
+        // Test database - H2
+        testRuntimeOnly 'com.h2database:h2'
 
         // Kafka Dependencies.
         implementation 'org.springframework.kafka:spring-kafka'
@@ -98,10 +102,6 @@ configure([project(':order-service'), project(':payment-service'), project(':inv
         // Spring-specific Testing Dependencies
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
         testImplementation "org.springframework.statemachine:spring-statemachine-test:${springStateMachineVersion}"
-        testImplementation 'org.testcontainers:testcontainers'
-        testImplementation 'org.testcontainers:junit-jupiter'
-        testImplementation 'org.testcontainers:kafka' // Added Kafka Testcontainers
-        testImplementation 'org.testcontainers:postgresql' // Added PostgreSQL Testcontainers
         testImplementation 'org.springframework.kafka:spring-kafka-test' // Added Spring Kafka Test
         testImplementation 'io.rest-assured:rest-assured'
         testImplementation 'org.awaitility:awaitility'

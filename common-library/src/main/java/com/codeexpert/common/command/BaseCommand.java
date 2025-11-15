@@ -1,12 +1,18 @@
 package com.codeexpert.common.command;
 
-import com.codeexpert.common.event.DomainEvent; // Added import
+import com.codeexpert.common.event.DomainEvent;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 @Data
 @SuperBuilder
-public class BaseCommand implements DomainEvent { // Implements DomainEvent
+@NoArgsConstructor
+@AllArgsConstructor
+public class BaseCommand implements DomainEvent {
 
     private String orderId;
 

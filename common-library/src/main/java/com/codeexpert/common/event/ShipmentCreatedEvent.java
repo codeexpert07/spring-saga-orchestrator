@@ -1,13 +1,17 @@
 package com.codeexpert.common.event;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 @Data
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
+@NoArgsConstructor
+@AllArgsConstructor
 public class ShipmentCreatedEvent extends BaseEvent { // Extends BaseEvent
+
+    @Builder.Default
+    private String commandType = "ShipmentCreatedEvent";
 
     private String shipmentId;
 }
