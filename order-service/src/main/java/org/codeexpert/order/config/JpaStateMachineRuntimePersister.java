@@ -1,12 +1,8 @@
 package org.codeexpert.order.config;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import org.springframework.statemachine.StateMachineContext;
-import org.springframework.statemachine.StateMachinePersist;
 import org.springframework.statemachine.persist.AbstractStateMachinePersister;
 import org.springframework.statemachine.persist.StateMachineRuntimePersister;
-import org.springframework.statemachine.support.DefaultStateMachineContext;
 import org.springframework.statemachine.support.StateMachineInterceptor;
 
 import java.util.HashMap;

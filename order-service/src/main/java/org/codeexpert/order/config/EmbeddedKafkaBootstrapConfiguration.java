@@ -4,9 +4,15 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +29,9 @@ public class EmbeddedKafkaBootstrapConfiguration {
     @Value("${kafka.embedded.broker.port:9092}")
     private int brokerPort;
 
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
+
     @Bean
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = new HashMap<>();
@@ -32,22 +41,36 @@ public class EmbeddedKafkaBootstrapConfiguration {
     }
 
     @Bean
+    public AdminClient adminClient(KafkaAdmin kafkaAdmin) {
+        return AdminClient.create(kafkaAdmin.getConfigurationProperties());
+    }
+
+    @Bean
+    public ProducerFactory<String, Object> producerFactory(KafkaProperties properties) {
+        return new DefaultKafkaProducerFactory<>(
+                properties.buildProducerProperties(null),
+                new JsonSerializer<>(),
+                new JsonSerializer<>()
+        );
+    }
+
+    @Bean
+    public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
     public NewTopic paymentEventsTopic() {
-        return new NewTopic("payment-events", 1, (short) 1);
+        return TopicBuilder.name("payment-events").partitions(1).replicas(1).build();
     }
 
     @Bean
     public NewTopic inventoryEventsTopic() {
-        return new NewTopic("inventory-events", 1, (short) 1);
+        return TopicBuilder.name("inventory-events").partitions(1).replicas(1).build();
     }
 
     @Bean
     public NewTopic shippingEventsTopic() {
-        return new NewTopic("shipping-events", 1, (short) 1);
-    }
-
-    @Bean
-    public AdminClient adminClient(KafkaAdmin kafkaAdmin) {
-        return AdminClient.create(kafkaAdmin.getConfigurationProperties());
+        return TopicBuilder.name("shipping-events").partitions(1).replicas(1).build();
     }
 }
