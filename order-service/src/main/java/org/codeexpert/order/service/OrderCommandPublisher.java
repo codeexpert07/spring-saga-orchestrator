@@ -5,6 +5,7 @@ import org.codeexpert.common.constant.KafkaTopics;
 import org.codeexpert.common.publisher.MessagePublisher; // Changed import
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.stereotype.Service;
 
 @Log4j2
@@ -12,9 +13,13 @@ import org.springframework.stereotype.Service;
 public class OrderCommandPublisher {
 
     @Autowired
+    private KafkaAdmin kafkaAdmin;
+
+    @Autowired
     private MessagePublisher messagePublisher; // Changed injected type
 
     public void publishPaymentCommand(ProcessPaymentCommand command) {
+        kafkaAdmin.setAutoCreate(true);
         log.debug("Publishing payment command: {}", command);
         messagePublisher.publish(KafkaTopics.PAYMENT_COMMANDS, command.getOrderId(), command); // Changed commandPublisher to messagePublisher
     }

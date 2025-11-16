@@ -17,6 +17,8 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.codeexpert.common.constant.KafkaTopics.PAYMENT_COMMANDS;
+
 /**
  * Configuration for Kafka in embedded mode (for development only).
  */
@@ -46,7 +48,7 @@ public class EmbeddedKafkaBootstrapConfiguration {
     @Bean
     public ProducerFactory<String, Object> producerFactory(KafkaProperties properties) {
         return new DefaultKafkaProducerFactory<>(
-                properties.buildProducerProperties(null),
+                properties.buildProducerProperties(),
                 new JsonSerializer<>(),
                 new JsonSerializer<>()
         );
@@ -70,5 +72,20 @@ public class EmbeddedKafkaBootstrapConfiguration {
     @Bean
     public NewTopic shippingEventsTopic() {
         return TopicBuilder.name("shipping-events").partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic paymentCommandTopic() {
+        return TopicBuilder.name(PAYMENT_COMMANDS).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic inventoryCommandsTopic() {
+        return TopicBuilder.name("inventory-commands").partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic shippingCommandsTopic() {
+        return TopicBuilder.name("shipping-commands").partitions(1).replicas(1).build();
     }
 }

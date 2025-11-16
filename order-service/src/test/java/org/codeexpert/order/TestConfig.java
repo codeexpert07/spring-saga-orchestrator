@@ -11,8 +11,6 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.codeexpert.order.config.OrderStateMachineConfig;
 import org.codeexpert.order.model.OrderEvent;
 import org.codeexpert.order.model.OrderState;
-import org.codeexpert.order.persistence.JpaStateMachineRepository;
-import org.codeexpert.order.persistence.StateMachineContextRepository;
 import org.codeexpert.order.service.OrderCommandPublisher;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -71,19 +69,11 @@ public class TestConfig {
         return txManager;
     }
 
-    @Bean
-    public StateMachinePersister<OrderState, OrderEvent, String> stateMachinePersister(
-            StateMachineContextRepository repository) {
-        return new DefaultStateMachinePersister<>(
-            new JpaStateMachineRepository<OrderState, OrderEvent>(repository)
-        );
-    }
 
     @Bean
     public StateMachineService<OrderState, OrderEvent> stateMachineService(
-            StateMachineFactory<OrderState, OrderEvent> stateMachineFactory,
-            JpaStateMachineRepository<OrderState, OrderEvent> stateMachineRepository) {
-        return new DefaultStateMachineService<>(stateMachineFactory, stateMachineRepository);
+            StateMachineFactory<OrderState, OrderEvent> stateMachineFactory) {
+        return new DefaultStateMachineService<>(stateMachineFactory);
     }
 
     @Bean

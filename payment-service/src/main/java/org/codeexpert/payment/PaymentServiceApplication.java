@@ -8,7 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication
+@SpringBootApplication( scanBasePackages = {
+        "org.codeexpert"
+})
 public class PaymentServiceApplication {
 
     private final KafkaListenerRegistrar kafkaListenerRegistrar;

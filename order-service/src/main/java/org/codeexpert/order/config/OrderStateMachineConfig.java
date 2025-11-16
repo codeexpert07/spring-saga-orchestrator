@@ -9,11 +9,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.statemachine.action.Action;
+import org.springframework.statemachine.config.EnableStateMachineFactory;
 import org.springframework.statemachine.config.StateMachineConfigurerAdapter;
+import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.statemachine.config.builders.StateMachineStateConfigurer;
 import org.springframework.statemachine.config.builders.StateMachineTransitionConfigurer;
+import org.springframework.statemachine.service.DefaultStateMachineService;
+import org.springframework.statemachine.service.StateMachineService;
 
 @Configuration
+@EnableStateMachineFactory
 public class OrderStateMachineConfig extends StateMachineConfigurerAdapter<OrderState, OrderEvent> {
 
     @Autowired
@@ -178,5 +183,11 @@ public class OrderStateMachineConfig extends StateMachineConfigurerAdapter<Order
 
             commandPublisher.publishReleaseInventoryCommand(command);
         };
+    }
+
+    @Bean
+    public StateMachineService<OrderState, OrderEvent> stateMachineService(
+            StateMachineFactory<OrderState, OrderEvent> stateMachineFactory) {
+        return new DefaultStateMachineService<>(stateMachineFactory);
     }
 }
