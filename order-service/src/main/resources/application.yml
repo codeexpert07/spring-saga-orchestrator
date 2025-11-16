@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: order-service
+  
+  # Web server configuration
+  main:
+    web-application-type: servlet  # Explicitly enable servlet-based web server
+    
+  # Database Configuration
+  datasource:
+    url: jdbc:h2:mem:orderdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+    
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+# Server configuration
+server:
+  port: 8080  # Default port, can be overridden by profile
+  servlet:
+    context-path: /api  # Optional: Add a base path for all endpoints
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics  # Expose these actuator endpoints
+  endpoint:
+    health:
+      show-details: when_authorized
+    metrics:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.hibernate: INFO
+    org.apache.kafka: INFO
+    org.codeexpert: DEBUG  # Your application's base package

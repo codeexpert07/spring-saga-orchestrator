@@ -1,27 +1,31 @@
 package org.codeexpert.shipping;
 
-import com.codeexpert.common.command.CreateShipmentCommand;
-import com.codeexpert.common.constant.KafkaTopics;
-import com.codeexpert.common.event.ShipmentCreatedEvent;
+import org.codeexpert.common.command.CreateShipmentCommand;
+import org.codeexpert.common.constant.KafkaTopics;
+import org.codeexpert.common.event.ShipmentCreatedEvent;
+import org.codeexpert.common.model.OrderItem;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
+import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.TestPropertySource;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -31,17 +35,50 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-@Testcontainers
+@DirtiesContext
+@EmbeddedKafka(
+        partitions = 1,
+        topics = {
+                KafkaTopics.SHIPPING_COMMANDS,
+                KafkaTopics.SHIPPING_EVENTS
+        },
+        brokerProperties = {
+                "listeners=PLAINTEXT://localhost:9094",
+                "port=9094",
+                "auto.create.topics.enable=true"
+        }
+)
+@TestPropertySource(properties = {
+        // H2 Database Configuration
+        "spring.datasource.url=jdbc:h2:mem:testdb",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.h2.console.enabled=true",
+
+        // Kafka Configuration
+        "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
+        "spring.kafka.consumer.auto-offset-reset=earliest",
+        "spring.kafka.consumer.group-id=shipping-service-test-group",
+
+        // Kafka Producer Serialization
+        "spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer",
+        "spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer",
+
+        // Kafka Consumer Deserialization
+        "spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
+        "spring.kafka.consumer.value-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
+        "spring.kafka.consumer.properties.spring.json.trusted.packages=*"
+})
+@Import(TestConfig.class)
 class ShippingServiceIntegrationTest {
 
-    @Container
-    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"));
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:13"));
+    @Autowired
+    private EmbeddedKafkaBroker embeddedKafkaBroker;
 
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
@@ -49,65 +86,118 @@ class ShippingServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private static Consumer<String, Object> testConsumer;
+    @Autowired
+    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
-    @DynamicPropertySource
-    static void kafkaProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-        registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
-    }
+    private static Consumer<String, String> testConsumer;
 
     @BeforeAll
-    static void setup() {
-        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("test-group", "true", kafka.getBootstrapServers());
-        DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
-        testConsumer = cf.createConsumer();
-        testConsumer.subscribe(Collections.singletonList(KafkaTopics.SHIPPING_EVENTS));
-        testConsumer.poll(Duration.ofSeconds(1)); // Ensure consumer is assigned partitions
+    static void setup(@Autowired EmbeddedKafkaBroker embeddedKafkaBroker) {
+        try {
+            // Build consumer properties for embedded Kafka
+            Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(
+                    "test-consumer-group",
+                    "true",
+                    embeddedKafkaBroker
+            );
+
+            consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+            consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+
+            // Create consumer factory with explicit deserializers
+            DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(
+                    consumerProps,
+                    new StringDeserializer(),
+                    new StringDeserializer()
+            );
+
+            testConsumer = cf.createConsumer();
+            testConsumer.subscribe(Collections.singletonList(KafkaTopics.SHIPPING_EVENTS));
+
+            // Initial poll to ensure consumer is assigned partitions
+            testConsumer.poll(Duration.ofSeconds(1));
+
+            System.out.println("Test consumer setup completed successfully");
+        } catch (Exception e) {
+            System.err.println("Error setting up test consumer: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @AfterAll
     static void tearDown() {
         if (testConsumer != null) {
-            testConsumer.close();
+            try {
+                testConsumer.close();
+                System.out.println("Test consumer closed successfully");
+            } catch (Exception e) {
+                System.err.println("Error closing test consumer: " + e.getMessage());
+            }
         }
+    }
+
+    /**
+     * Wait for all Kafka listeners to be running before executing tests
+     */
+    private void waitForKafkaListeners() {
+        await().atMost(Duration.ofSeconds(30)).until(() -> {
+            boolean allRunning = kafkaListenerEndpointRegistry.getListenerContainers()
+                    .stream()
+                    .allMatch(container -> container.isRunning());
+            if (allRunning) {
+                System.out.println("All Kafka listeners are running");
+            }
+            return allRunning;
+        });
     }
 
     @Test
     void contextLoads() {
         assertNotNull(kafkaTemplate);
+        assertNotNull(objectMapper);
+        assertNotNull(embeddedKafkaBroker);
+        System.out.println("Context loaded successfully with embedded Kafka");
     }
 
     @Test
     void shouldProcessCreateShipmentCommandAndPublishShipmentCreatedEvent() throws Exception {
+        // Wait for listeners to be ready
+        waitForKafkaListeners();
+
         // Given
         String orderId = UUID.randomUUID().toString();
         CreateShipmentCommand command = CreateShipmentCommand.builder()
                 .orderId(orderId)
-                .items(Collections.singletonMap("item1", 1)) // Assuming some items
+                .items(Collections.singletonList(OrderItem.builder().productId("1").price(BigDecimal.ONE).quantity(1).build())) // Assuming some items
                 .correlationId(orderId)
                 .build();
 
         // When
-        kafkaTemplate.send(KafkaTopics.SHIPPING_COMMANDS, command.getOrderId(), command).get(10, TimeUnit.SECONDS);
+        kafkaTemplate.send(KafkaTopics.SHIPPING_COMMANDS, command.getOrderId(), command)
+                .get(10, TimeUnit.SECONDS);
         System.out.println("Sent CreateShipmentCommand: " + command);
 
         // Then
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            ConsumerRecord<String, Object> receivedRecord = KafkaTestUtils.getSingleRecord(testConsumer, KafkaTopics.SHIPPING_EVENTS, Duration.ofMillis(10000));
-            assertNotNull(receivedRecord);
-            Object value = receivedRecord.value();
-            assertNotNull(value);
-            assertTrue(value instanceof ShipmentCreatedEvent);
-            ShipmentCreatedEvent event = (ShipmentCreatedEvent) value;
-            System.out.println("Received ShipmentCreatedEvent: " + event);
+            ConsumerRecord<String, String> receivedRecord = KafkaTestUtils.getSingleRecord(
+                    testConsumer,
+                    KafkaTopics.SHIPPING_EVENTS,
+                    Duration.ofMillis(10000)
+            );
 
+            assertNotNull(receivedRecord, "No record received from Kafka");
+            assertNotNull(receivedRecord.value(), "Received record value is null");
+            
+            // Deserialize the JSON string to ShipmentCreatedEvent
+            ShipmentCreatedEvent event = objectMapper.readValue(
+                    receivedRecord.value(), 
+                    ShipmentCreatedEvent.class
+            );
+            
+            System.out.println("Received ShipmentCreatedEvent: " + event);
             assertEquals(orderId, event.getOrderId());
-            assertEquals("SUCCESS", event.getStatus()); // Assuming success by default
+            assertEquals("SUCCESS", event.getStatus());
             assertNotNull(event.getShipmentId());
         });
     }

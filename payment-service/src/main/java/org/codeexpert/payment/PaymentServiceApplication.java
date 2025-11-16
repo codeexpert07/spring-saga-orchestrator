@@ -1,9 +1,8 @@
 package org.codeexpert.payment;
 
-import com.codeexpert.common.command.ProcessPaymentCommand;
-import com.codeexpert.common.constant.KafkaTopics;
-import com.codeexpert.common.listener.DomainEventListener;
-import com.codeexpert.common.listener.KafkaListenerRegistrar;
+import org.codeexpert.common.constant.KafkaTopics;
+import org.codeexpert.common.listener.DomainEventListener;
+import org.codeexpert.common.listener.KafkaListenerRegistrar;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;

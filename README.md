@@ -78,12 +78,12 @@ When creating a new microservice that needs to interact with Kafka, follow these
 2.  **Define Commands/Events:** Create your service-specific command and event classes in `common-library`, ensuring they extend `BaseCommand` or `BaseEvent` respectively.
 3.  **Implement `DomainEventListener`:**
     -   Create a listener class (e.g., `MyServiceEventListener`) in your new service.
-    -   This class must implement `com.codeexpert.common.listener.DomainEventListener`.
+    -   This class must implement `listener.org.codeexpert.common.DomainEventListener`.
     -   Inject your service's business logic handler (e.g., `MyServiceOrchestrator`).
     -   Implement the `onEvent(DomainEvent event)` method. Inside this method, use `if (event instanceof SpecificEvent)` checks to dispatch to appropriate private handler methods, similar to `OrderEventListener`.
 4.  **Use `MessagePublisher`:**
     -   Create a publisher class (e.g., `MyServiceCommandPublisher`) in your new service.
-    -   Inject `com.codeexpert.common.publisher.MessagePublisher`.
+    -   Inject `publisher.org.codeexpert.common.MessagePublisher`.
     -   Define methods for publishing your service's commands/events, delegating to `messagePublisher.publish(topic, key, message)`.
 5.  **Register Listeners in Application Class:**
     -   In your service's main `@SpringBootApplication` class (e.g., `MyServiceApplication`), inject `KafkaListenerRegistrar` and your `DomainEventListener` implementation.

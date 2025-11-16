@@ -1,9 +1,8 @@
 package org.codeexpert.shipping;
 
-import com.codeexpert.common.command.CreateShipmentCommand;
-import com.codeexpert.common.constant.KafkaTopics;
-import com.codeexpert.common.listener.DomainEventListener;
-import com.codeexpert.common.listener.KafkaListenerRegistrar;
+import org.codeexpert.common.constant.KafkaTopics;
+import org.codeexpert.common.listener.DomainEventListener;
+import org.codeexpert.common.listener.KafkaListenerRegistrar;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -32,6 +31,6 @@ public class ShippingServiceApplication {
         String groupId = "shipping-service-group"; // Define group ID here or in properties
 
         kafkaListenerRegistrar.registerListener(
-                KafkaTopics.SHIPPING_COMMANDS, groupId, shippingCommandListener, CreateShipmentCommand.class);
+                KafkaTopics.SHIPPING_COMMANDS, groupId, shippingCommandListener);
     }
 }

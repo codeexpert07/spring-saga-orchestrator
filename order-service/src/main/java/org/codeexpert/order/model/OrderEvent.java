@@ -1,0 +1,26 @@
+package org.codeexpert.order.model;
+
+public enum OrderEvent {
+
+    START_ORDER,
+
+    PAYMENT_SUCCESS,
+
+    PAYMENT_FAILED,
+
+    INVENTORY_SUCCESS,
+
+    INVENTORY_FAILED,
+
+    SHIPPING_SUCCESS,
+
+    SHIPPING_FAILED,
+
+    COMPENSATE_PAYMENT,
+
+    COMPENSATE_INVENTORY,
+
+    INVENTORY_RESERVED,
+
+    INVENTORY_RESERVE_FAILED
+}

@@ -1,13 +1,13 @@
 package org.codeexpert.inventory.service;
 
-import com.codeexpert.common.command.ReleaseInventoryCommand;
-import com.codeexpert.common.command.ReserveInventoryCommand;
-import com.codeexpert.common.constant.KafkaTopics;
-import com.codeexpert.common.event.DomainEvent;
-import com.codeexpert.common.event.InventoryReleasedEvent;
-import com.codeexpert.common.event.InventoryReservedEvent;
-import com.codeexpert.common.listener.DomainEventListener;
-import com.codeexpert.common.publisher.MessagePublisher; // Changed import
+import org.codeexpert.common.command.ReleaseInventoryCommand;
+import org.codeexpert.common.command.ReserveInventoryCommand;
+import org.codeexpert.common.constant.KafkaTopics;
+import org.codeexpert.common.event.DomainEvent;
+import org.codeexpert.common.event.InventoryReleasedEvent;
+import org.codeexpert.common.event.InventoryReservedEvent;
+import org.codeexpert.common.listener.DomainEventListener;
+import org.codeexpert.common.publisher.MessagePublisher; // Changed import
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

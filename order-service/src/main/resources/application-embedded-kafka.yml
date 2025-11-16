@@ -1,0 +1,44 @@
+spring:
+  kafka:
+    bootstrap-servers: ${kafka.embedded.broker.host:localhost}:${kafka.embedded.broker.port:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add-type-headers: false
+    consumer:
+      group-id: order-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: >-
+          com.codeexpert.common.event.PaymentProcessedEvent:com.codeexpert.common.event.PaymentProcessedEvent,
+          com.codeexpert.common.event.InventoryReservedEvent:com.codeexpert.common.event.InventoryReservedEvent,
+          com.codeexpert.common.event.ShipmentCreatedEvent:com.codeexpert.common.event.ShipmentCreatedEvent
+
+# Embedded Kafka configuration
+kafka:
+  embedded:
+    enabled: true
+    broker:
+      host: localhost
+      port: 9092
+    topics:
+      - name: payment-events
+        partitions: 1
+        replication-factor: 1
+      - name: inventory-events
+        partitions: 1
+        replication-factor: 1
+      - name: shipping-events
+        partitions: 1
+        replication-factor: 1
+
+# Logging configuration for Kafka
+logging:
+  level:
+    org.springframework.kafka: INFO
+    org.apache.kafka: INFO
+    kafka: INFO

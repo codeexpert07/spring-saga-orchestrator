@@ -1,9 +1,9 @@
 package org.codeexpert.inventory;
 
-import com.codeexpert.common.constant.KafkaTopics;
-import com.codeexpert.common.listener.KafkaListenerRegistrar;
-import com.codeexpert.common.publisher.KafkaMessagePublisher;
-import com.codeexpert.common.publisher.MessagePublisher;
+import org.codeexpert.common.constant.KafkaTopics;
+import org.codeexpert.common.listener.KafkaListenerRegistrar;
+import org.codeexpert.common.publisher.KafkaMessagePublisher;
+import org.codeexpert.common.publisher.MessagePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
