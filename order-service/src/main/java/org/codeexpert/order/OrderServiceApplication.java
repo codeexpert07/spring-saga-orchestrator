@@ -7,6 +7,8 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.statemachine.config.EnableStateMachine;
 
 @SpringBootApplication( scanBasePackages = {
@@ -14,6 +16,12 @@ import org.springframework.statemachine.config.EnableStateMachine;
         "org.codeexpert.common"  // Make sure this package is scanned
 })
 @EnableStateMachine
+@EnableJpaRepositories(basePackages = {
+        "com.codeexpert.orderservice.repository"      // Your repositories
+})
+@EntityScan(basePackages = {
+        "com.codeexpert.orderservice.entity"          // Your entities
+})
 public class OrderServiceApplication {
 
     private final KafkaListenerRegistrar kafkaListenerRegistrar;
