@@ -11,11 +11,13 @@ import org.springframework.statemachine.data.jpa.JpaStateMachineRepository;
 import org.springframework.statemachine.persist.StateMachineRuntimePersister;
 
 @Configuration
-@EntityScan(basePackages = {
-    "org.springframework.statemachine.data.jpa"
-})
 @EnableJpaRepositories(basePackages = {
-    "org.springframework.statemachine.data.jpa"
+        "org.springframework.statemachine.data.jpa",
+        "com.codeexpert.orderservice.repository"
+})
+@EntityScan(basePackages = {  // ← ADD THIS!
+        "org.springframework.statemachine.data.jpa",
+        "com.codeexpert.orderservice.entity"
 })
 public class StateMachineJpaConfig {
 

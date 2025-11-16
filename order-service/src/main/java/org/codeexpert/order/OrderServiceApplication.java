@@ -16,12 +16,6 @@ import org.springframework.statemachine.config.EnableStateMachine;
         "org.codeexpert.common"  // Make sure this package is scanned
 })
 @EnableStateMachine
-@EnableJpaRepositories(basePackages = {
-        "com.codeexpert.orderservice.repository"      // Your repositories
-})
-@EntityScan(basePackages = {
-        "com.codeexpert.orderservice.entity"          // Your entities
-})
 public class OrderServiceApplication {
 
     private final KafkaListenerRegistrar kafkaListenerRegistrar;
