@@ -15,6 +15,7 @@ import org.springframework.statemachine.persist.DefaultStateMachinePersister;
 import org.springframework.statemachine.persist.StateMachinePersister;
 import org.springframework.statemachine.service.DefaultStateMachineService;
 import org.springframework.statemachine.service.StateMachineService;
+import org.springframework.statemachine.persist.StateMachineRuntimePersister;
 
 import java.util.EnumSet;
 
@@ -35,32 +36,14 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<OrderS
             throws Exception {
         config
             .withPersistence()
-                .runtimePersister(stateMachineRuntimePersister())
             .and()
             .withConfiguration()
                 .autoStartup(true);
     }
 
     @Bean
-    public StateMachinePersister<OrderState, OrderEvent, String> stateMachinePersister() {
-        return new DefaultStateMachinePersister<>(new StateMachinePersist<OrderState, OrderEvent, String>() {
-            @Override
-            public void write(StateMachineContext<OrderState, OrderEvent> context, String contextObj) {
-                // In-memory implementation - no persistence
-            }
-
-            @Override
-            public StateMachineContext<OrderState, OrderEvent> read(String contextObj) {
-                // In-memory implementation - returns null as there's no persistence
-                return null;
-            }
-        });
-    }
-
-    @Bean
     public StateMachineService<OrderState, OrderEvent> stateMachineService(
-            StateMachineFactory<OrderState, OrderEvent> stateMachineFactory,
-            StateMachinePersister<OrderState, OrderEvent, String> stateMachinePersister) {
-        return new DefaultStateMachineService<>(stateMachineFactory, stateMachinePersister);
+            StateMachineFactory<OrderState, OrderEvent> stateMachineFactory) {
+        return new DefaultStateMachineService<>(stateMachineFactory);
     }
 }

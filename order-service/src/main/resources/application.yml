@@ -48,6 +48,7 @@ logging:
   level:
     root: INFO
     org.springframework: INFO
+    org.apache.kafka.clients.NetworkClient: ERROR
     org.hibernate: INFO
     org.apache.kafka: INFO
     org.codeexpert: DEBUG  # Your application's base package

@@ -29,8 +29,6 @@ public class EmbeddedKafkaBootstrapConfiguration {
     @Value("${kafka.embedded.broker.port:9092}")
     private int brokerPort;
 
-    @Value("${spring.kafka.bootstrap-servers}")
-    private String bootstrapServers;
 
     @Bean
     public KafkaAdmin kafkaAdmin() {
