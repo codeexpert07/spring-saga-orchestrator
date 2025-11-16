@@ -16,7 +16,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.statemachine:spring-statemachine-starter:3.2.0'
-    implementation 'org.springframework.statemachine:spring-statemachine-data-jpa:3.2.0'
+    implementation 'org.springframework.statemachine:spring-statemachine-data-inmemory:3.2.0'
     
     // Database
     implementation 'com.h2database:h2'
